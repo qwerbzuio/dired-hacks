@@ -560,14 +560,18 @@ Return a string suitable for insertion in `dired' buffer."
   (run-hooks 'dired-subtree-after-remove-hook))
 
 ;;;###autoload
-(defun dired-subtree-toggle ()
-  "Insert subtree at point or remove it if it was not present."
-  (interactive)
-  (if (dired-subtree--is-expanded-p)
-      (progn
-        (dired-next-line 1)
-        (dired-subtree-remove))
-      (save-excursion (dired-subtree-insert))))
+(defun dired-subtree-toggle (&optional show-all)
+  "Insert subtree at point or remove it if it was not present.
+
+With prefix-argument show subtree recursively."
+  (interactive "P")
+  (if show-all
+      (dired-subtree--insert-recursive 1 nil)
+    (if (dired-subtree--is-expanded-p)
+       (progn
+         (dired-next-line 1)
+         (dired-subtree-remove))
+     (save-excursion (dired-subtree-insert)))))
 
 (defun dired-subtree--insert-recursive (depth max-depth)
   "Insert full subtree at point."
