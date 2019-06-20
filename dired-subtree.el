@@ -301,6 +301,18 @@ If no SUBTREES are specified, use `dired-subtree-overlays'."
      (while (dired-subtree-next-sibling)
        ,@forms)))
 
+(defmacro dired-subtree-with-subdirs-maybe (&rest forms)
+  "If at first line of dired buffer, run FORMS on each subdir in this dired listing.
+Otherwise, just run FORMS."
+  (declare (debug (body)))
+  `(if (equal (count-lines (point-min) (line-beginning-position)) 0)
+       (save-excursion
+         (while (dired-subtree-next-sibling)
+           (when (dired-utils-is-dir-p)
+             (save-excursion
+               ,@forms))))
+     ,@forms))
+
 
 ;;;; Interactive
 
@@ -486,63 +498,64 @@ Return a string suitable for insertion in `dired' buffer."
 (defun dired-subtree-insert ()
   "Insert subtree under this directory."
   (interactive)
-  (when (and (dired-subtree--dired-line-is-directory-or-link-p)
-             (not (dired-subtree--is-expanded-p)))
-    (let* ((dir-name (dired-get-filename nil))
-           (listing (dired-subtree--readin (file-name-as-directory dir-name)))
-           beg end)
-      (read-only-mode -1)
-      (move-end-of-line 1)
-      ;; this is pretty ugly, I'm sure it can be done better
-      (save-excursion
-        (insert listing)
-        (setq end (+ (point) 2)))
-      (newline)
-      (setq beg (point))
-      (let ((inhibit-read-only t))
-        (remove-text-properties (1- beg) beg '(dired-filename)))
-      (let* ((ov (make-overlay beg end))
-             (parent (dired-subtree--get-ov (1- beg)))
-             (depth (or (and parent (1+ (overlay-get parent 'dired-subtree-depth)))
-                        1))
-             (face (intern (format "dired-subtree-depth-%d-face" depth))))
-        (when dired-subtree-use-backgrounds
-          (overlay-put ov 'face face))
-        ;; refactor this to some function
-        (overlay-put ov 'line-prefix
-                     (if (stringp dired-subtree-line-prefix)
-                         (if (not dired-subtree-use-backgrounds)
-                             (apply 'concat (-repeat depth dired-subtree-line-prefix))
-                           (cond
-                            ((eq nil dired-subtree-line-prefix-face)
-                             (apply 'concat
-                                    (-repeat depth dired-subtree-line-prefix)))
-                            ((eq 'subtree dired-subtree-line-prefix-face)
-                             (concat
-                              dired-subtree-line-prefix
-                              (propertize
-                               (apply 'concat
-                                      (-repeat (1- depth) dired-subtree-line-prefix))
-                               'face face)))
-                            ((eq 'parents dired-subtree-line-prefix-face)
-                             (concat
-                              dired-subtree-line-prefix
+  (dired-subtree-with-subdirs-maybe
+   (when (and (dired-subtree--dired-line-is-directory-or-link-p)
+              (not (dired-subtree--is-expanded-p)))
+     (let* ((dir-name (dired-get-filename nil))
+            (listing (dired-subtree--readin (file-name-as-directory dir-name)))
+            beg end)
+       (read-only-mode -1)
+       (move-end-of-line 1)
+       ;; this is pretty ugly, I'm sure it can be done better
+       (save-excursion
+         (insert listing)
+         (setq end (+ (point) 2)))
+       (newline)
+       (setq beg (point))
+       (let ((inhibit-read-only t))
+         (remove-text-properties (1- beg) beg '(dired-filename)))
+       (let* ((ov (make-overlay beg end))
+              (parent (dired-subtree--get-ov (1- beg)))
+              (depth (or (and parent (1+ (overlay-get parent 'dired-subtree-depth)))
+                         1))
+              (face (intern (format "dired-subtree-depth-%d-face" depth))))
+         (when dired-subtree-use-backgrounds
+           (overlay-put ov 'face face))
+         ;; refactor this to some function
+         (overlay-put ov 'line-prefix
+                      (if (stringp dired-subtree-line-prefix)
+                          (if (not dired-subtree-use-backgrounds)
+                              (apply 'concat (-repeat depth dired-subtree-line-prefix))
+                            (cond
+                             ((eq nil dired-subtree-line-prefix-face)
                               (apply 'concat
-                                     (--map
-                                      (propertize dired-subtree-line-prefix
-                                                  'face
-                                                  (intern (format "dired-subtree-depth-%d-face" it)))
-                                      (number-sequence 1 (1- depth))))))))
-                       (funcall dired-subtree-line-prefix depth)))
-        (overlay-put ov 'dired-subtree-name dir-name)
-        (overlay-put ov 'dired-subtree-parent parent)
-        (overlay-put ov 'dired-subtree-depth depth)
-        (overlay-put ov 'evaporate t)
-        (push ov dired-subtree-overlays))
-      (goto-char beg)
-      (dired-move-to-filename)
-      (read-only-mode 1)
-      (run-hooks 'dired-subtree-after-insert-hook))))
+                                     (-repeat depth dired-subtree-line-prefix)))
+                             ((eq 'subtree dired-subtree-line-prefix-face)
+                              (concat
+                               dired-subtree-line-prefix
+                               (propertize
+                                (apply 'concat
+                                       (-repeat (1- depth) dired-subtree-line-prefix))
+                                'face face)))
+                             ((eq 'parents dired-subtree-line-prefix-face)
+                              (concat
+                               dired-subtree-line-prefix
+                               (apply 'concat
+                                      (--map
+                                       (propertize dired-subtree-line-prefix
+                                                   'face
+                                                   (intern (format "dired-subtree-depth-%d-face" it)))
+                                       (number-sequence 1 (1- depth))))))))
+                        (funcall dired-subtree-line-prefix depth)))
+         (overlay-put ov 'dired-subtree-name dir-name)
+         (overlay-put ov 'dired-subtree-parent parent)
+         (overlay-put ov 'dired-subtree-depth depth)
+         (overlay-put ov 'evaporate t)
+         (push ov dired-subtree-overlays))
+       (goto-char beg)
+       (dired-move-to-filename)
+       (read-only-mode 1)
+       (run-hooks 'dired-subtree-after-insert-hook)))))
 
 ;;;###autoload
 (defun dired-subtree-remove ()
@@ -565,13 +578,14 @@ Return a string suitable for insertion in `dired' buffer."
 
 With prefix-argument show subtree recursively."
   (interactive "P")
-  (if show-all
-      (dired-subtree--insert-recursive 1 nil)
-    (if (dired-subtree--is-expanded-p)
-       (progn
-         (dired-next-line 1)
-         (dired-subtree-remove))
-     (save-excursion (dired-subtree-insert)))))
+  (dired-subtree-with-subdirs-maybe
+   (if show-all
+       (dired-subtree--insert-recursive 1 nil)
+     (if (dired-subtree--is-expanded-p)
+         (progn
+           (dired-next-line 1)
+           (dired-subtree-remove))
+       (save-excursion (dired-subtree-insert))))))
 
 (defun dired-subtree--insert-recursive (depth max-depth)
   "Insert full subtree at point."
@@ -603,28 +617,29 @@ With prefix-argument show subtree recursively."
 
 Numeric prefix will set max depth"
   (interactive "P")
-  (save-excursion
-    (cond
-     ;; prefix - show subtrees up to max-depth
-     (max-depth
-      (when (dired-subtree--is-expanded-p)
-        (dired-next-line 1)
-        (dired-subtree-remove))
-      (dired-subtree--insert-recursive 1 (if (integerp max-depth) max-depth nil))
-      (setq dired-subtree--cycle-previous :full))
-     ;; if directory is not expanded, expand one level
-     ((not (dired-subtree--is-expanded-p))
-      (dired-subtree-insert)
-      (setq dired-subtree--cycle-previous :insert))
-     ;; hide if previous command was not cycle or tree was fully expanded
-     ((or (not (eq last-command 'dired-subtree-cycle))
-          (eq dired-subtree--cycle-previous :full))
-      (dired-next-line 1)
-      (dired-subtree-remove)
-      (setq dired-subtree--cycle-previous :remove))
-     (t
-      (dired-subtree--insert-recursive 1 dired-subtree-cycle-depth)
-      (setq dired-subtree--cycle-previous :full)))))
+  (dired-subtree-with-subdirs-maybe
+   (save-excursion
+     (cond
+      ;; prefix - show subtrees up to max-depth
+      (max-depth
+       (when (dired-subtree--is-expanded-p)
+         (dired-next-line 1)
+         (dired-subtree-remove))
+       (dired-subtree--insert-recursive 1 (if (integerp max-depth) max-depth nil))
+       (setq dired-subtree--cycle-previous :full))
+      ;; if directory is not expanded, expand one level
+      ((not (dired-subtree--is-expanded-p))
+       (dired-subtree-insert)
+       (setq dired-subtree--cycle-previous :insert))
+      ;; hide if previous command was not cycle or tree was fully expanded
+      ((or (not (eq last-command 'dired-subtree-cycle))
+           (eq dired-subtree--cycle-previous :full))
+       (dired-next-line 1)
+       (dired-subtree-remove)
+       (setq dired-subtree--cycle-previous :remove))
+      (t
+       (dired-subtree--insert-recursive 1 dired-subtree-cycle-depth)
+       (setq dired-subtree--cycle-previous :full))))))
 
 (defun dired-subtree--filter-up (keep-dir kill-siblings)
   (save-excursion
