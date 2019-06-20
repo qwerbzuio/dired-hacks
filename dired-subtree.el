@@ -481,10 +481,13 @@ Return a string suitable for insertion in `dired' buffer."
     (delete-region
      (progn (beginning-of-line) (point))
      (progn (forward-line
-             (if (save-excursion
-                   (forward-line 1)
-                   (end-of-line)
-                   (looking-back "\\."))
+             (if (or
+                  (save-excursion
+                    (end-of-line 2)
+                    (looking-back "\\."))
+                  (save-excursion
+                    (end-of-line 3)
+                    (looking-back "\\.")))
                  3 1)) (point)))
     (insert "  ")
     (while (= (forward-line) 0)
