@@ -358,13 +358,13 @@ Otherwise, just run FORMS."
     (dired-next-line 1)
     (let ((new-ov (dired-subtree--get-ov)))
       (cond
-       ((not (dired-utils-is-file-p))
-        nil)
        ((< (dired-subtree--get-depth current-ov)
            (dired-subtree--get-depth new-ov))
         (goto-char (overlay-end new-ov))
         (dired-move-to-filename)
         t)
+       ((equal (point) (point-max))
+        nil)
        ((> (dired-subtree--get-depth current-ov)
            (dired-subtree--get-depth new-ov))
         ;; add option to either go to top or stay at the end
@@ -380,9 +380,7 @@ Otherwise, just run FORMS."
     (dired-previous-line 1)
     (let ((new-ov (dired-subtree--get-ov)))
       (cond
-       ;; this will need better handlign if we have inserted
-       ;; subdirectories
-       ((not (dired-utils-is-file-p))
+       ((equal (point) (point-max))
         nil)
        ((< (dired-subtree--get-depth current-ov)
            (dired-subtree--get-depth new-ov))
