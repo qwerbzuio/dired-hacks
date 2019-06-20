@@ -321,6 +321,7 @@ If no SUBTREES are specified, use `dired-subtree-overlays'."
   (interactive "p")
   (-when-let (ov (dired-subtree--get-ov))
     (goto-char (overlay-start ov))
+    (dired-move-to-filename) ;; work around a bug in dired
     (dired-previous-line 1)))
 
 ;;;###autoload
@@ -374,6 +375,7 @@ If no SUBTREES are specified, use `dired-subtree-overlays'."
        ((< (dired-subtree--get-depth current-ov)
            (dired-subtree--get-depth new-ov))
         (goto-char (overlay-start new-ov))
+        (dired-move-to-filename) ;; work around a bug in dired
         (dired-previous-line 1)
         t)
        ((> (dired-subtree--get-depth current-ov)
